@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Select Area</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.3);
+      cursor: crosshair;
+    }
+    #selection {
+      position: absolute;
+      border: 2px solid #00ff00;
+      background: rgba(0, 255, 0, 0.1);
+      display: none;
+      pointer-events: none;
+    }
+    #instructions {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 16px;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="selection"></div>
+  <div id="instructions">Click and drag to select an area</div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const selection = document.getElementById('selection');
+    const instructions = document.getElementById('instructions');
+    let isSelecting = false;
+    let startX, startY;
+
+    document.addEventListener('mousedown', (e) => {
+      isSelecting = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      selection.style.display = 'block';
+      selection.style.left = startX + 'px';
+      selection.style.top = startY + 'px';
+      selection.style.width = '0';
+      selection.style.height = '0';
+      instructions.style.display = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isSelecting) return;
+
+      const currentX = e.clientX;
+      const currentY = e.clientY;
+
+      const width = Math.abs(currentX - startX);
+      const height = Math.abs(currentY - startY);
+      const left = Math.min(currentX, startX);
+      const top = Math.min(currentY, startY);
+
+      selection.style.left = left + 'px';
+      selection.style.top = top + 'px';
+      selection.style.width = width + 'px';
+      selection.style.height = height + 'px';
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      if (!isSelecting) return;
+      isSelecting = false;
+
+      const width = Math.abs(e.clientX - startX);
+      const height = Math.abs(e.clientY - startY);
+
+      if (width > 10 && height > 10) {
+        const bounds = {
+          x: Math.min(e.clientX, startX),
+          y: Math.min(e.clientY, startY),
+          width,
+          height
+        };
+        ipcRenderer.send('capture-area', bounds);
+      } else {
+        ipcRenderer.send('cancel-selection');
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        ipcRenderer.send('cancel-selection');
+      }
+    });
+  </script>
+</body>
+</html>

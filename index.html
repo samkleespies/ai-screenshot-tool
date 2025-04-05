@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Screenshot Tool</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+      color: #333;
+      user-select: none;
+    }
+    .container {
+      text-align: center;
+    }
+    h1 {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+    .hotkey {
+      background-color: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .hotkey-text {
+      font-size: 16px;
+      color: #666;
+    }
+    .key {
+      background-color: #e9ecef;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      margin: 0 2px;
+    }
+    .status {
+      font-size: 14px;
+      color: #666;
+    }
+    .status.success {
+      color: #28a745;
+    }
+    .status.warning {
+      color: #ffc107;
+    }
+    .status.error {
+      color: #dc3545;
+    }
+    .change-hotkey-container {
+      margin-top: 20px;
+      text-align: center;
+    }
+    .btn {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    .btn:hover {
+      background-color: #0069d9;
+    }
+    .btn:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+    .hotkey-input {
+      display: block;
+      margin: 10px auto;
+      padding: 8px;
+      width: 200px;
+      text-align: center;
+      font-family: monospace;
+      border-radius: 4px;
+      border: 1px solid #ced4da;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>AI Screenshot Tool</h1>
+    <div class="hotkey">
+      <div class="hotkey-text" id="currentHotkey">
+        Press <span class="key">Ctrl</span> + <span class="key">Shift</span> + <span class="key">S</span> to capture
+      </div>
+    </div>
+    
+    <div class="change-hotkey-container">
+      <button id="changeHotkeyBtn" class="btn">Change Hotkey</button>
+      
+      <div id="hotkeyRecorderContainer" class="hidden">
+        <input type="text" id="hotkeyInput" class="hotkey-input" placeholder="Press the keys..." readonly>
+        <button id="saveHotkeyBtn" class="btn" disabled>Save</button>
+        <button id="cancelHotkeyBtn" class="btn">Cancel</button>
+      </div>
+    </div>
+    
+    <div id="status" class="status">
+      Ready to capture
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const status = document.getElementById('status');
+    const changeHotkeyBtn = document.getElementById('changeHotkeyBtn');
+    const hotkeyRecorderContainer = document.getElementById('hotkeyRecorderContainer');
+    const hotkeyInput = document.getElementById('hotkeyInput');
+    const saveHotkeyBtn = document.getElementById('saveHotkeyBtn');
+    const cancelHotkeyBtn = document.getElementById('cancelHotkeyBtn');
+    const currentHotkey = document.getElementById('currentHotkey');
+    
+    let pressedKeys = [];
+    let isRecording = false;
+    
+    function updateCurrentHotkeyDisplay(hotkeyData) {
+      let hotkeyHtml = 'Press ';
+      
+      hotkeyData.forEach((key, index) => {
+        hotkeyHtml += `<span class="key">${key}</span>`;
+        if (index < hotkeyData.length - 1) {
+          hotkeyHtml += ' + ';
+        }
+      });
+      
+      hotkeyHtml += ' to capture';
+      currentHotkey.innerHTML = hotkeyHtml;
+    }
+    
+    ipcRenderer.send('get-hotkey');
+    ipcRenderer.on('current-hotkey', (event, hotkeyData) => {
+      updateCurrentHotkeyDisplay(hotkeyData);
+    });
+    
+    changeHotkeyBtn.addEventListener('click', () => {
+      changeHotkeyBtn.classList.add('hidden');
+      hotkeyRecorderContainer.classList.remove('hidden');
+      hotkeyInput.value = '';
+      saveHotkeyBtn.disabled = true;
+      pressedKeys = [];
+      isRecording = true;
+      status.textContent = 'Press the keys you want to use as hotkey';
+      status.className = 'status';
+    });
+    
+    cancelHotkeyBtn.addEventListener('click', () => {
+      hotkeyRecorderContainer.classList.add('hidden');
+      changeHotkeyBtn.classList.remove('hidden');
+      isRecording = false;
+      status.textContent = 'Ready to capture';
+      status.className = 'status';
+    });
+    
+    saveHotkeyBtn.addEventListener('click', () => {
+      if (pressedKeys.length > 0) {
+        ipcRenderer.send('save-hotkey', pressedKeys);
+        hotkeyRecorderContainer.classList.add('hidden');
+        changeHotkeyBtn.classList.remove('hidden');
+        isRecording = false;
+        status.textContent = 'Hotkey saved successfully!';
+        status.className = 'status success';
+        setTimeout(() => {
+          status.textContent = 'Ready to capture';
+          status.className = 'status';
+        }, 3000);
+      }
+    });
+    
+    document.addEventListener('keydown', (e) => {
+      if (!isRecording) return;
+      
+      e.preventDefault();
+      
+      const key = e.key.toUpperCase();
+      if (!pressedKeys.includes(key) && key !== 'CONTROL' && key !== 'SHIFT' && key !== 'ALT') {
+        pressedKeys = [];
+        
+        if (e.ctrlKey) pressedKeys.push('Ctrl');
+        if (e.shiftKey) pressedKeys.push('Shift');
+        if (e.altKey) pressedKeys.push('Alt');
+        
+        if (key !== 'CONTROL' && key !== 'SHIFT' && key !== 'ALT') {
+          pressedKeys.push(key);
+        }
+        
+        hotkeyInput.value = pressedKeys.join(' + ');
+        saveHotkeyBtn.disabled = pressedKeys.length < 2;
+      }
+    });
+    
+    ipcRenderer.on('screenshot-taken', () => {
+      status.textContent = 'Screenshot captured! Opening ChatGPT...';
+      status.className = 'status success';
+    });
+
+    ipcRenderer.on('paste-success', () => {
+      status.textContent = 'Screenshot pasted into ChatGPT successfully!';
+      status.className = 'status success';
+      setTimeout(() => {
+        status.textContent = 'Ready to capture';
+        status.className = 'status';
+      }, 5000);
+    });
+
+    ipcRenderer.on('paste-timeout', () => {
+      status.textContent = 'Could not detect ChatGPT window. Image is in clipboard, please paste manually.';
+      status.className = 'status warning';
+      setTimeout(() => {
+        status.textContent = 'Ready to capture';
+        status.className = 'status';
+      }, 8000);
+    });
+
+    ipcRenderer.on('paste-error', (event, message) => {
+      status.textContent = `Paste error: ${message}. Try pasting manually with Ctrl+V.`;
+      status.className = 'status error';
+      setTimeout(() => {
+        status.textContent = 'Ready to capture';
+        status.className = 'status';
+      }, 8000);
+    });
+
+    ipcRenderer.on('screenshot-error', (event, error) => {
+      status.textContent = `Error: ${error}`;
+      status.className = 'status error';
+      setTimeout(() => {
+        status.textContent = 'Ready to capture';
+        status.className = 'status';
+      }, 5000);
+    });
+  </script>
+</body>
+</html>
