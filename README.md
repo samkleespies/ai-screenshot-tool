@@ -1,6 +1,6 @@
 # AI Screenshot Tool
 
-A Windows desktop app built with Electron and Node.js that lets you capture and share screenshots with ChatGPT. Uses native OS capabilities and the Electron desktopCapturer API for seamless integration.
+A Windows desktop app built with Electron and Node.js that lets you screenshot an area of your screen, then the tool will automatically open a new ChatGPT chat and paste the screenshot for you.
 
 ## Planned Features
 
@@ -25,6 +25,9 @@ See build instructions below
 2. Press `Ctrl+Shift+S` (or your custom hotkey) to take a screenshot
 3. Select the area of your screen you want to capture
 4. The app automatically opens ChatGPT and pastes your screenshot
+
+The tool will continue running in the background and can be accessed from the system tray when the application is minimized.
+To stop/exit the tool, simply close the window or right click on the system tray icon and click exit.
 
 ## Build Instructions
 
@@ -66,11 +69,12 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## Coffee
+
+If you like this tool and want to support me, buy me a coffee! ☕
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow.svg)](https://buymeacoffee.com/samkleespies)
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details. 
-
-
-If you find this tool useful you can buy me a coffee! ☕
-
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow.svg)](https://buymeacoffee.com/samkleespies) 
