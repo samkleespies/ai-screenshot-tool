@@ -31,12 +31,17 @@ jobs:
         
       - name: Build macOS app
         run: npm run build:mac
-        
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+      
+      - name: Zip the app for distribution
+        run: |
+          cd dist/mac
+          zip -r ../../mac-app.zip *.app
+          cd ../..
+          
+      - name: Upload files to workflow artifacts
+        uses: actions/upload-artifact@v3.1.3
         with:
-          name: mac-build
+          name: mac-builds
           path: |
-            dist/mac/*.app
-            dist/*.dmg
-          retention-days: 14 
+            mac-app.zip
+            dist/*.dmg 
