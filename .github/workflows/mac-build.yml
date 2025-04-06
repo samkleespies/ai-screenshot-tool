@@ -38,7 +38,7 @@ jobs:
           fi
         
       - name: Build macOS app
-        run: npm run build:mac
+        run: npm run build:mac -- --publish never
         
       - name: List built files for debugging
         run: |
@@ -54,8 +54,13 @@ jobs:
             zip -r ../../mac-app.zip *.app
             cd ../..
             echo "Mac app zipped successfully"
+          elif [ -d "dist/mac-arm64" ]; then
+            cd dist/mac-arm64
+            zip -r ../../mac-app.zip *.app
+            cd ../..
+            echo "Mac arm64 app zipped successfully"
           else
-            echo "ERROR: dist/mac directory not found. Build may have failed."
+            echo "ERROR: No Mac app directory found. Build may have failed."
             exit 1
           fi
           
