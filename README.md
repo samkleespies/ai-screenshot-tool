@@ -26,6 +26,9 @@ See build instructions below
 3. Select the area of your screen you want to capture
 4. The app automatically opens ChatGPT and pastes your screenshot
 
+The tool will continue running in the background and can be accessed from the system tray when the application is minimized.
+To stop/exit the tool, simply close the window or right click on the system tray icon and click exit.
+
 ## Build Instructions
 
 ### Prerequisites
