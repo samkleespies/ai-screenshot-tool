@@ -1,6 +1,5 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, clipboard, globalShortcut, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, clipboard, globalShortcut, nativeImage, desktopCapturer } = require('electron');
 const path = require('path');
-const screenshot = require('screenshot-desktop');
 const { GlobalKeyboardListener } = require('node-global-key-listener');
 const { exec } = require('child_process');
 const fs = require('fs');
@@ -190,16 +189,40 @@ async function startScreenshotProcess() {
 async function captureArea(bounds) {
   try {
     console.log('Capturing area with bounds:', bounds);
-    const image = await screenshot({
-      screen: 0,
-      ...bounds
+    
+    // First, capture the entire screen
+    const sources = await desktopCapturer.getSources({ 
+      types: ['screen'],
+      thumbnailSize: {
+        width: screen.getPrimaryDisplay().workAreaSize.width,
+        height: screen.getPrimaryDisplay().workAreaSize.height
+      }
     });
-
+    
+    // Get the primary display source
+    const primarySource = sources[0];
+    
+    if (!primarySource) {
+      throw new Error('No screen source found');
+    }
+    
+    // Create a native image from the thumbnail
+    const fullScreenImg = primarySource.thumbnail;
+    
+    // Crop the image to the selected bounds
+    const croppedImg = fullScreenImg.crop({
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height
+    });
+    
+    // Save the cropped image to disk temporarily (for debugging)
     const tempImagePath = path.join(os.tmpdir(), 'ai-screenshot-app-temp.png');
-    fs.writeFileSync(tempImagePath, image);
-
-    const nativeImg = nativeImage.createFromPath(tempImagePath);
-    clipboard.writeImage(nativeImg);
+    fs.writeFileSync(tempImagePath, croppedImg.toPNG());
+    
+    // Copy the cropped image to clipboard
+    clipboard.writeImage(croppedImg);
     console.log('Screenshot copied to clipboard');
 
     console.log('Opening ChatGPT...');
@@ -215,7 +238,7 @@ async function captureArea(bounds) {
       Dim attemptCount
       windowFound = False
       attemptCount = 0
-      maxAttempts = 60 ' Try for up to 60 seconds
+      maxAttempts = 60
       
       Do While Not windowFound And attemptCount < maxAttempts
         On Error Resume Next
@@ -233,7 +256,7 @@ async function captureArea(bounds) {
         End If
         
         If Not windowFound Then
-          WScript.Sleep 500 ' Check twice per second
+          WScript.Sleep 500
           attemptCount = attemptCount + 1
         End If
       Loop
