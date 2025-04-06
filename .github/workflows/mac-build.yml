@@ -1,0 +1,47 @@
+name: Build macOS App
+
+on:
+  # Manually trigger the workflow
+  workflow_dispatch:
+  # Or trigger when pushing to mac-support branch
+  push:
+    branches: [ mac-support ]
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+        
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Copy icon file for macOS
+        run: |
+          mkdir -p build
+          cp icon.ico build/icon.icns
+        
+      - name: Build macOS app
+        run: npm run build:mac
+        
+      - name: Upload .app file
+        uses: actions/upload-artifact@v3
+        with:
+          name: mac-app
+          path: dist/mac/*.app
+          retention-days: 14
+          
+      - name: Upload .dmg file
+        uses: actions/upload-artifact@v3
+        with:
+          name: mac-dmg
+          path: dist/*.dmg
+          retention-days: 14 
