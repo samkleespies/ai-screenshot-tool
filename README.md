@@ -66,6 +66,12 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## Coffee
+
+If you like this tool and want to support me, buy me a coffee! ☕
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow.svg)](https://buymeacoffee.com/samkleespies)
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details. 
