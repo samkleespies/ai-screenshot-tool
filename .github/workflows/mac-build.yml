@@ -24,24 +24,46 @@ jobs:
       - name: Install dependencies
         run: npm install
       
-      - name: Copy icon file for macOS
+      - name: Verify icon file exists
         run: |
-          mkdir -p build
-          cp icon.ico build/icon.icns
+          if [ -f "icon.icns" ]; then
+            echo "Using existing icon.icns file"
+          elif [ -f "icon.ico" ]; then
+            echo "Converting icon.ico to icon.icns"
+            mkdir -p build
+            cp icon.ico build/icon.icns
+          else
+            echo "ERROR: No icon file found!"
+            exit 1
+          fi
         
       - name: Build macOS app
         run: npm run build:mac
+        
+      - name: List built files for debugging
+        run: |
+          echo "Contents of dist directory:"
+          ls -la dist
+          echo "Contents of dist/mac directory (if exists):"
+          ls -la dist/mac || echo "dist/mac directory does not exist"
       
       - name: Zip the app for distribution
         run: |
-          cd dist/mac
-          zip -r ../../mac-app.zip *.app
-          cd ../..
+          if [ -d "dist/mac" ]; then
+            cd dist/mac
+            zip -r ../../mac-app.zip *.app
+            cd ../..
+            echo "Mac app zipped successfully"
+          else
+            echo "ERROR: dist/mac directory not found. Build may have failed."
+            exit 1
+          fi
           
-      - name: Upload files to workflow artifacts
-        uses: actions/upload-artifact@v3.1.3
+      - name: Upload Mac app as artifact
+        uses: actions/upload-artifact@v4
         with:
           name: mac-builds
           path: |
             mac-app.zip
-            dist/*.dmg 
+            dist/*.dmg
+          if-no-files-found: error 
