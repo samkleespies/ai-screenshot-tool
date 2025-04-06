@@ -1,6 +1,6 @@
 # AI Screenshot Tool
 
-A Windows desktop app built with Electron and Node.js that lets you capture and share screenshots with ChatGPT. Uses native OS capabilities and the Electron desktopCapturer API for seamless integration.
+A Windows desktop app built with Electron and Node.js that lets you screenshot an area of your screen and it the tool will automatically open a new ChatGPT chat in your browser and automatically paste the screenshot in the chat.
 
 ## Planned Features
 
