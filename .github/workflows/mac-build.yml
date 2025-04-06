@@ -33,14 +33,14 @@ jobs:
         run: npm run build:mac
         
       - name: Upload .app file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.2
         with:
           name: mac-app
           path: dist/mac/*.app
           retention-days: 14
           
       - name: Upload .dmg file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.2
         with:
           name: mac-dmg
           path: dist/*.dmg
