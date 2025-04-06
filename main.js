@@ -9,10 +9,12 @@ let mainWindow = null;
 let tray = null;
 let keyboardListener = null;
 let selectionWindow = null;
+const isMac = process.platform === 'darwin';
+const isWindows = process.platform === 'win32';
 
 let hotkeyConfig = {
-  keys: ['Ctrl', 'Shift', 'S'],
-  nodeKeys: ['LEFT CTRL', 'LEFT SHIFT', 'S']
+  keys: isMac ? ['Command', 'Shift', 'S'] : ['Ctrl', 'Shift', 'S'],
+  nodeKeys: isMac ? ['LEFT META', 'LEFT SHIFT', 'S'] : ['LEFT CTRL', 'LEFT SHIFT', 'S']
 };
 
 const prefsPath = path.join(app.getPath('userData'), 'preferences.json');
@@ -57,7 +59,7 @@ function createWindow() {
     },
     resizable: false,
     autoHideMenuBar: true,
-    icon: path.join(__dirname, 'icon.ico')
+    icon: getAppIcon()
   });
 
   mainWindow.loadFile('index.html');
@@ -79,9 +81,17 @@ function createWindow() {
   });
 }
 
+function getAppIcon() {
+  if (isMac) {
+    return path.join(__dirname, 'icon.icns');
+  } else {
+    return path.join(__dirname, 'icon.ico');
+  }
+}
+
 function setupTray() {
   try {
-    tray = new Tray(path.join(__dirname, 'icon.ico'));
+    tray = new Tray(getAppIcon());
     const contextMenu = Menu.buildFromTemplate([
       {
         label: 'Show App',
@@ -168,6 +178,8 @@ function convertToNodeKeys(uiKeys) {
       nodeKeys.push('LEFT SHIFT');
     } else if (key === 'Alt') {
       nodeKeys.push('LEFT ALT');
+    } else if (key === 'Command') {
+      nodeKeys.push('LEFT META');
     } else {
       nodeKeys.push(key);
     }
@@ -226,81 +238,120 @@ async function captureArea(bounds) {
     console.log('Screenshot copied to clipboard');
 
     console.log('Opening ChatGPT...');
-    exec('start https://chat.openai.com/');
     
-    const vbsPath = path.join(os.tmpdir(), 'paste-to-chatgpt.vbs');
-    const vbsScript = `
-      Set WshShell = WScript.CreateObject("WScript.Shell")
+    if (isWindows) {
+      openChatGPTWindows();
+    } else if (isMac) {
+      openChatGPTMac();
+    }
+    
+    return tempImagePath;
+  } catch (error) {
+    console.error('Error capturing area:', error);
+    throw error;
+  }
+}
+
+function openChatGPTWindows() {
+  exec('start https://chat.openai.com/');
+  
+  const vbsPath = path.join(os.tmpdir(), 'paste-to-chatgpt.vbs');
+  const vbsScript = `
+    Set WshShell = WScript.CreateObject("WScript.Shell")
+    
+    WScript.Sleep 500
+    
+    Dim windowFound
+    Dim attemptCount
+    windowFound = False
+    attemptCount = 0
+    maxAttempts = 60
+    
+    Do While Not windowFound And attemptCount < maxAttempts
+      On Error Resume Next
       
-      WScript.Sleep 500
-      
-      Dim windowFound
-      Dim attemptCount
-      windowFound = False
-      attemptCount = 0
-      maxAttempts = 60
-      
-      Do While Not windowFound And attemptCount < maxAttempts
-        On Error Resume Next
-        
-        If WshShell.AppActivate("ChatGPT") Then
-          windowFound = True
-        ElseIf WshShell.AppActivate("chat.openai.com") Then
-          windowFound = True
-        ElseIf WshShell.AppActivate("New chat - ChatGPT") Then
-          windowFound = True
-        ElseIf WshShell.AppActivate("OpenAI") Then
-          windowFound = True
-        ElseIf WshShell.AppActivate("New chat") Then
-          windowFound = True
-        End If
-        
-        If Not windowFound Then
-          WScript.Sleep 500
-          attemptCount = attemptCount + 1
-        End If
-      Loop
-      
-      If windowFound Then
-        WScript.Sleep 800
-        
-        On Error Resume Next
-        WshShell.AppActivate("ChatGPT")
-        WshShell.AppActivate("chat.openai.com")
-        
-        WshShell.SendKeys "^v"
-        
-        WScript.Echo "Screenshot pasted successfully"
-      Else
-        WScript.Echo "Timed out waiting for ChatGPT window"
+      If WshShell.AppActivate("ChatGPT") Then
+        windowFound = True
+      ElseIf WshShell.AppActivate("chat.openai.com") Then
+        windowFound = True
+      ElseIf WshShell.AppActivate("New chat - ChatGPT") Then
+        windowFound = True
       End If
       
-      Set WshShell = Nothing
-    `;
+      If Err.Number <> 0 Then
+        windowFound = False
+        Err.Clear
+      End If
+      
+      If Not windowFound Then
+        WScript.Sleep 500
+        attemptCount = attemptCount + 1
+      End If
+    Loop
     
-    fs.writeFileSync(vbsPath, vbsScript);
+    If windowFound Then
+      WScript.Sleep 1000
+      WshShell.SendKeys("^v")
+    End If
+  `;
+  
+  fs.writeFileSync(vbsPath, vbsScript);
+  exec(`cscript "${vbsPath}"`, (error) => {
+    if (error) {
+      console.error('Error executing VBS script:', error);
+    }
     
-    const vbsProcess = exec(`cscript //NoLogo "${vbsPath}"`, (error, stdout, stderr) => {
-      if (error) {
-        console.error('Error executing VBS script:', error);
-        mainWindow.webContents.send('paste-error', 'Failed to paste screenshot automatically');
-      } else {
-        console.log('VBS output:', stdout.trim());
-        if (stdout.includes("pasted successfully")) {
-          mainWindow.webContents.send('paste-success');
-        } else if (stdout.includes("timed out")) {
-          console.log('Could not find ChatGPT window. Screenshot is still in clipboard.');
-          mainWindow.webContents.send('paste-timeout');
-        }
-      }
+    // Clean up: delete the VBS script
+    fs.unlink(vbsPath, (err) => {
+      if (err) console.error('Error deleting VBS script:', err);
     });
+  });
+}
+
+function openChatGPTMac() {
+  exec('open https://chat.openai.com/');
+  
+  // Create AppleScript to paste the image
+  const asPath = path.join(os.tmpdir(), 'paste-to-chatgpt.scpt');
+  const appleScript = `
+    set maxAttempts to 60
+    set attemptCount to 0
+    set windowFound to false
     
-    mainWindow.webContents.send('screenshot-taken');
-    console.log('Screenshot captured and ChatGPT opened. Waiting for page to load...');
-  } catch (error) {
-    console.error('Screenshot capture failed:', error);
-    mainWindow.webContents.send('screenshot-error', error.message);
-  }
+    repeat until windowFound or attemptCount ≥ maxAttempts
+      delay 0.5
+      set attemptCount to attemptCount + 1
+      
+      tell application "System Events"
+        set visibleProcesses to name of every process whose visible is true
+      end tell
+      
+      if visibleProcesses contains "Google Chrome" or visibleProcesses contains "Safari" or visibleProcesses contains "Firefox" then
+        try
+          tell application "System Events"
+            set frontApp to name of first process whose frontmost is true
+            if frontApp is "Google Chrome" or frontApp is "Safari" or frontApp is "Firefox" then
+              set windowFound to true
+              delay 1
+              keystroke "v" using {command down}
+            end if
+          end tell
+        end try
+      end if
+    end repeat
+  `;
+  
+  fs.writeFileSync(asPath, appleScript);
+  exec(`osascript "${asPath}"`, (error) => {
+    if (error) {
+      console.error('Error executing AppleScript:', error);
+    }
+    
+    // Clean up: delete the AppleScript
+    fs.unlink(asPath, (err) => {
+      if (err) console.error('Error deleting AppleScript:', err);
+    });
+  });
 }
 
 ipcMain.on('capture-area', async (event, bounds) => {

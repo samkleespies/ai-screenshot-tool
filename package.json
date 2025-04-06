@@ -1,11 +1,13 @@
 {
   "name": "ai-screenshot-tool",
   "version": "1.0.0",
-  "description": "Windows screenshot tool with ChatGPT integration",
+  "description": "Screenshot tool with ChatGPT integration for Windows and Mac",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win"
   },
   "dependencies": {
     "electron-store": "^8.2.0",
@@ -21,6 +23,11 @@
     "win": {
       "target": "portable",
       "icon": "icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "icon.icns",
+      "category": "public.app-category.utilities"
     },
     "files": [
       "**/*",
