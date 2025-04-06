@@ -1,5 +1,5 @@
 {
-  "name": "ai-screenshot-app",
+  "name": "ai-screenshot-tool",
   "version": "1.0.0",
   "description": "Windows screenshot tool with ChatGPT integration",
   "main": "main.js",
@@ -16,7 +16,7 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.ai-screenshot.app",
+    "appId": "com.ai-screenshot.tool",
     "productName": "AI Screenshot Tool",
     "win": {
       "target": "portable",

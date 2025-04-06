@@ -1,19 +1,19 @@
 # AI Screenshot Tool
 
-A Windows desktop app built with Electron and Node.js that lets you capture an area of your screen with a hotkey. After you take the screenshot it will automatically open a new browser window to a new ChatGPT chat and paste your screenshot in the chat for you.
+A Windows desktop app built with Electron and Node.js that lets you capture and share screenshots with ChatGPT. Uses native OS capabilities and the Electron desktopCapturer API for seamless integration.
 
 ## Planned Features
 
 - **Target Specific Chats**: Paste screenshots into existing ChatGPT conversations
-- **Multi-Model Support**: Options to select different AI's (Claude, Gemini, etc.)
+- **Multi-Model Support**: Options to select different AI models/companies (Claude, Gemini, etc.)
 - **ChatGPT Model Selection**: Choose specific ChatGPT models (GPT-3.5, GPT-4, etc.)
-- **IDE Integration**: Functionality to paste into different AI-powered IDEs like Cursor, Windsurf, etc.
-- **Native Installer**: Windows installer package instead of a portable .exe
+- **IDE Integration**: Functionality to paste into different AI-powered IDEs like Cursor, CLINE in VSCode, Windsurf, etc.
+- **Native Installer**: Windows installer package for easier setup
 
 ## Installation
 
 ### Option 1: Portable Version
-1. Download the latest `.exe` file from the [Releases](https://github.com/samkleespies/ai-screenshot-app/releases) page
+1. Download the latest `.exe` file from the [Releases](https://github.com/yourusername/ai-screenshot-tool/releases) page
 2. Run the executable - no installation required
 
 ### Option 2: Build from Source
@@ -36,8 +36,8 @@ See build instructions below
 ### Steps
 1. Clone the repository
    ```
-   git clone https://github.com/yourusername/ai-screenshot-app.git
-   cd ai-screenshot-app
+   git clone https://github.com/yourusername/ai-screenshot-tool.git
+   cd ai-screenshot-tool
    ```
 
 2. Install dependencies
