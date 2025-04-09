@@ -37,8 +37,8 @@ jobs:
             exit 1
           fi
         
-      - name: Build macOS app
-        run: npm run build:mac -- --publish never
+      - name: Build macOS app for Intel
+        run: npm run build:mac -- --x64 --publish never
         
       - name: List built files for debugging
         run: |
