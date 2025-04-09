@@ -107,6 +107,12 @@
     <div id="status" class="status">
       Ready to capture
     </div>
+
+    <!-- Add Debug Button -->
+    <div id="debugControls" class="hidden" style="margin-top: 15px;">
+      <button id="debugTakeScreenshotBtn" class="btn">Debug: Take Screenshot</button>
+    </div>
+    <!-- End Debug Button -->
   </div>
 
   <script>
@@ -118,9 +124,12 @@
     const saveHotkeyBtn = document.getElementById('saveHotkeyBtn');
     const cancelHotkeyBtn = document.getElementById('cancelHotkeyBtn');
     const currentHotkey = document.getElementById('currentHotkey');
+    const debugControls = document.getElementById('debugControls'); // Get debug controls container
+    const debugTakeScreenshotBtn = document.getElementById('debugTakeScreenshotBtn'); // Get debug button
     
     let pressedKeys = [];
     let isRecording = false;
+    let isDebugMode = false; // Flag for debug mode
     
     function updateCurrentHotkeyDisplay(hotkeyData) {
       let hotkeyHtml = 'Press ';
@@ -236,6 +245,26 @@
         status.textContent = 'Ready to capture';
         status.className = 'status';
       }, 5000);
+    });
+
+    // Listen for debug mode status from main process
+    ipcRenderer.on('set-debug-mode', (event, isDebug) => {
+      console.log('Renderer received set-debug-mode:', isDebug);
+      isDebugMode = isDebug;
+      if (isDebugMode) {
+        debugControls.classList.remove('hidden');
+        status.textContent = 'Debug Mode Enabled';
+      } else {
+        debugControls.classList.add('hidden');
+      }
+    });
+
+    // Add event listener for the debug button
+    debugTakeScreenshotBtn.addEventListener('click', () => {
+      console.log('Debug Take Screenshot button clicked');
+      status.textContent = 'Debug: Starting screenshot process...';
+      status.className = 'status';
+      ipcRenderer.send('debug-take-screenshot');
     });
   </script>
 </body>

@@ -11,6 +11,7 @@ let keyboardListener = null;
 let selectionWindow = null;
 const isMac = process.platform === 'darwin';
 const isWindows = process.platform === 'win32';
+const isDebug = process.argv.includes('--debug');
 
 let hotkeyConfig = {
   keys: isMac ? ['Command', 'Shift', 'S'] : ['Ctrl', 'Shift', 'S'],
@@ -63,6 +64,15 @@ function createWindow() {
   });
 
   mainWindow.loadFile('index.html');
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.send('set-debug-mode', isDebug);
+  });
+
+  if (isDebug) {
+    mainWindow.webContents.openDevTools();
+    console.log('Running in debug mode. DevTools opened.');
+  }
 
   mainWindow.on('minimize', (event) => {
     event.preventDefault();
@@ -382,6 +392,15 @@ ipcMain.on('save-hotkey', (event, newHotkey) => {
   savePreferences();
   
   event.reply('current-hotkey', hotkeyConfig.keys);
+});
+
+ipcMain.on('debug-take-screenshot', () => {
+  if (isDebug) {
+    console.log('Received debug-take-screenshot IPC message');
+    startScreenshotProcess();
+  } else {
+    console.warn('Received debug-take-screenshot outside of debug mode. Ignoring.');
+  }
 });
 
 app.whenReady().then(() => {
