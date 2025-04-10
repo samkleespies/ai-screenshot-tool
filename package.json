@@ -1,11 +1,18 @@
 {
   "name": "ai-screenshot-tool",
-  "version": "1.0.0",
-  "description": "Windows screenshot tool with ChatGPT integration",
+  "version": "1.1.0",
+  "description": "Windows screenshot tool with ChatGPT and Cursor integration",
   "main": "main.js",
+  "author": {
+    "name": "Your Name",
+    "email": "your.email@example.com"
+  },
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "build:portable": "electron-builder --win portable",
+    "build:installer": "electron-builder --win nsis",
+    "clean": "rimraf \"./dist\""
   },
   "dependencies": {
     "electron-store": "^8.2.0",
@@ -13,14 +20,43 @@
   },
   "devDependencies": {
     "electron": "^28.3.3",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "rimraf": "^5.0.5"
   },
   "build": {
     "appId": "com.ai-screenshot.tool",
     "productName": "AI Screenshot Tool",
+    "directories": {
+      "output": "dist/v${version}"
+    },
     "win": {
-      "target": "portable",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "icon.ico"
+    },
+    "portable": {
+      "artifactName": "AI-Screenshot-Tool-Portable-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "AI-Screenshot-Tool-Setup-${version}.exe",
+      "shortcutName": "AI Screenshot Tool",
+      "uninstallDisplayName": "AI Screenshot Tool"
     },
     "files": [
       "**/*",

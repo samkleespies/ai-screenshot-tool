@@ -3,12 +3,26 @@
 <head>
   <title>Select Area</title>
   <style>
-    body {
+    html, body {
       margin: 0;
       padding: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-app-region: no-drag;
+    }
+    body {
       background: rgba(0, 0, 0, 0.3);
       cursor: crosshair;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: auto;
+      touch-action: none;
     }
     #selection {
       position: absolute;
@@ -16,6 +30,7 @@
       background: rgba(0, 255, 0, 0.1);
       display: none;
       pointer-events: none;
+      z-index: 1000;
     }
     #instructions {
       position: fixed;
@@ -27,21 +42,136 @@
       font-size: 16px;
       text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
       pointer-events: none;
+      z-index: 1001;
+    }
+    #overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: auto;
+      z-index: 999;
+    }
+    /* Edge guards to prevent resize operations */
+    .edge-guard {
+      position: fixed;
+      background: transparent;
+      z-index: 2000;
+      pointer-events: auto;
+    }
+    #top-guard {
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 8px;
+    }
+    #bottom-guard {
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 8px;
+    }
+    #left-guard {
+      top: 0;
+      left: 0;
+      width: 8px;
+      height: 100%;
+    }
+    #right-guard {
+      top: 0;
+      right: 0;
+      width: 8px;
+      height: 100%;
     }
   </style>
 </head>
 <body>
+  <div id="overlay"></div>
   <div id="selection"></div>
   <div id="instructions">Click and drag to select an area</div>
+  
+  <!-- Edge guards to intercept mouse events -->
+  <div id="top-guard" class="edge-guard"></div>
+  <div id="bottom-guard" class="edge-guard"></div>
+  <div id="left-guard" class="edge-guard"></div>
+  <div id="right-guard" class="edge-guard"></div>
 
   <script>
     const { ipcRenderer } = require('electron');
     const selection = document.getElementById('selection');
     const instructions = document.getElementById('instructions');
+    const overlay = document.getElementById('overlay');
+    const edgeGuards = document.querySelectorAll('.edge-guard');
     let isSelecting = false;
     let startX, startY;
 
+    // Prevent default behavior for all events that might trigger system UI
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+    
+    // Prevent any default drag behavior
+    document.addEventListener('dragstart', (e) => e.preventDefault());
+    
+    // Explicitly handle all mouse events on edge guards
+    edgeGuards.forEach(guard => {
+      guard.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      });
+      
+      guard.addEventListener('mousemove', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      });
+      
+      guard.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      });
+    });
+    
+    // Prevent any native resize behavior
+    window.addEventListener('resize', (e) => {
+      e.preventDefault();
+      document.body.style.width = '100vw';
+      document.body.style.height = '100vh';
+    });
+    
+    // Override resize related CSS properties periodically to ensure no resize handles appear
+    function enforceFullscreen() {
+      document.body.style.width = '100vw';
+      document.body.style.height = '100vh';
+      document.documentElement.style.width = '100vw';
+      document.documentElement.style.height = '100vh';
+    }
+    
+    // Run enforceFullscreen immediately and periodically
+    enforceFullscreen();
+    setInterval(enforceFullscreen, 100);
+    
+    // Prevent mousedown events near screen edges
+    const EDGE_THRESHOLD = 10; // pixels - increased threshold
+    
+    function isNearEdge(x, y) {
+      return x < EDGE_THRESHOLD || 
+             y < EDGE_THRESHOLD || 
+             window.innerWidth - x < EDGE_THRESHOLD || 
+             window.innerHeight - y < EDGE_THRESHOLD;
+    }
+
     document.addEventListener('mousedown', (e) => {
+      // First prevent default
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Skip if near edge to prevent resize handles
+      if (isNearEdge(e.clientX, e.clientY)) {
+        return false;
+      }
+      
       isSelecting = true;
       startX = e.clientX;
       startY = e.clientY;
@@ -54,6 +184,9 @@
     });
 
     document.addEventListener('mousemove', (e) => {
+      // Always prevent default to stop any system UI
+      e.preventDefault();
+      
       if (!isSelecting) return;
 
       const currentX = e.clientX;
@@ -71,6 +204,9 @@
     });
 
     document.addEventListener('mouseup', (e) => {
+      // Prevent default
+      e.preventDefault();
+      
       if (!isSelecting) return;
       isSelecting = false;
 
@@ -95,6 +231,20 @@
         ipcRenderer.send('cancel-selection');
       }
     });
+    
+    // Handle window focus to ensure we're in fullscreen
+    window.addEventListener('focus', () => {
+      enforceFullscreen();
+    });
+    
+    // Additional event listeners to stop any resize attempt
+    window.addEventListener('pointerdown', (e) => {
+      if (isNearEdge(e.clientX, e.clientY)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    }, true);
   </script>
 </body>
 </html>

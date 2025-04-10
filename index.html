@@ -10,9 +10,14 @@
       background-color: #f5f5f5;
       color: #333;
       user-select: none;
+      height: 100vh;
+      box-sizing: border-box;
     }
     .container {
       text-align: center;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
     h1 {
       font-size: 18px;
@@ -36,9 +41,31 @@
       font-family: monospace;
       margin: 0 2px;
     }
+    .destination-container {
+      background-color: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .destination-text {
+      font-size: 16px;
+      color: #666;
+      margin-bottom: 10px;
+    }
+    .destination-select {
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ced4da;
+      width: 200px;
+      font-size: 14px;
+    }
     .status {
       font-size: 14px;
       color: #666;
+      padding: 15px;
+      margin-top: 10px;
+      min-height: 40px;
     }
     .status.success {
       color: #28a745;
@@ -50,7 +77,8 @@
       color: #dc3545;
     }
     .change-hotkey-container {
-      margin-top: 20px;
+      margin-top: 10px;
+      margin-bottom: 20px;
       text-align: center;
     }
     .btn {
@@ -83,6 +111,9 @@
     .hidden {
       display: none;
     }
+    .spacer {
+      flex-grow: 1;
+    }
   </style>
 </head>
 <body>
@@ -94,6 +125,14 @@
       </div>
     </div>
     
+    <div class="destination-container">
+      <div class="destination-text">Paste destination:</div>
+      <select id="pasteDestination" class="destination-select">
+        <option value="chatgpt">ChatGPT</option>
+        <option value="cursor">Cursor Chat</option>
+      </select>
+    </div>
+    
     <div class="change-hotkey-container">
       <button id="changeHotkeyBtn" class="btn">Change Hotkey</button>
       
@@ -103,6 +142,8 @@
         <button id="cancelHotkeyBtn" class="btn">Cancel</button>
       </div>
     </div>
+    
+    <div class="spacer"></div>
     
     <div id="status" class="status">
       Ready to capture
@@ -118,6 +159,7 @@
     const saveHotkeyBtn = document.getElementById('saveHotkeyBtn');
     const cancelHotkeyBtn = document.getElementById('cancelHotkeyBtn');
     const currentHotkey = document.getElementById('currentHotkey');
+    const pasteDestination = document.getElementById('pasteDestination');
     
     let pressedKeys = [];
     let isRecording = false;
@@ -139,6 +181,17 @@
     ipcRenderer.send('get-hotkey');
     ipcRenderer.on('current-hotkey', (event, hotkeyData) => {
       updateCurrentHotkeyDisplay(hotkeyData);
+    });
+    
+    // Get the current paste destination preference
+    ipcRenderer.send('get-destination');
+    ipcRenderer.on('current-destination', (event, destination) => {
+      pasteDestination.value = destination;
+    });
+    
+    // Send destination changes to main process
+    pasteDestination.addEventListener('change', () => {
+      ipcRenderer.send('save-destination', pasteDestination.value);
     });
     
     changeHotkeyBtn.addEventListener('click', () => {
@@ -198,12 +251,13 @@
     });
     
     ipcRenderer.on('screenshot-taken', () => {
-      status.textContent = 'Screenshot captured! Opening ChatGPT...';
+      const destination = pasteDestination.value === 'cursor' ? 'Cursor' : 'ChatGPT';
+      status.textContent = `Screenshot captured! Opening ${destination}...`;
       status.className = 'status success';
     });
 
-    ipcRenderer.on('paste-success', () => {
-      status.textContent = 'Screenshot pasted into ChatGPT successfully!';
+    ipcRenderer.on('paste-success', (event, destination) => {
+      status.textContent = `Screenshot pasted into ${destination} successfully!`;
       status.className = 'status success';
       setTimeout(() => {
         status.textContent = 'Ready to capture';
@@ -211,13 +265,32 @@
       }, 5000);
     });
 
-    ipcRenderer.on('paste-timeout', () => {
-      status.textContent = 'Could not detect ChatGPT window. Image is in clipboard, please paste manually.';
+    ipcRenderer.on('paste-timeout', (event, destination) => {
+      status.textContent = `Could not detect ${destination} window. Image is in clipboard, please paste manually.`;
       status.className = 'status warning';
       setTimeout(() => {
         status.textContent = 'Ready to capture';
         status.className = 'status';
       }, 8000);
+    });
+    
+    ipcRenderer.on('cursor-not-running', () => {
+      status.textContent = 'Cursor is not running. Please start Cursor and try again.';
+      status.className = 'status error';
+      setTimeout(() => {
+        status.textContent = 'Ready to capture';
+        status.className = 'status';
+      }, 8000);
+    });
+
+    ipcRenderer.on('cursor-focused', () => {
+      status.textContent = 'Cursor window focused. Please click in the chat box when ready.';
+      status.className = 'status success';
+    });
+
+    ipcRenderer.on('cursor-already-focused', () => {
+      status.textContent = 'Cursor already focused. Please click in the chat box when ready.';
+      status.className = 'status success';
     });
 
     ipcRenderer.on('paste-error', (event, message) => {
