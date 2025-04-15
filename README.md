@@ -2,17 +2,16 @@
 
 A Windows desktop app built with Electron and Node.js that lets you screenshot an area of your screen, then the tool will automatically open a new ChatGPT chat or Cursor chat and paste the screenshot for you.
 
-## What's New in v1.2.0 🚀
+## What's New in v1.2.0
 
-Just shipped a bunch of fixes that make the app way more reliable:
+Fixes that make the app faster and more reliable:
 
 - Fixed the annoying selection window bug that was preventing click and drag from working
 - Made the app start up faster and feel snappier overall
-- Fixed issues with hotkey configuration (they actually save properly now!)
-- Added better logging to help track down any weird behaviors
-- Maintained the clean look while making everything work better under the hood
+- Fixed issues with hotkey configuration
+- Added better logging to help track down weird behaviors
 
-Check the [Release Notes](RELEASE_NOTES.md) for the full details!
+Check the [Release Notes](RELEASE_NOTES.md) for the full details
 
 ## Features
 
