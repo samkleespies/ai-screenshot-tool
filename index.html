@@ -2,6 +2,10 @@
 <html>
 <head>
   <title>AI Screenshot Tool</title>
+  <!-- Fix Content Security Policy to allow inline scripts -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -12,6 +16,8 @@
       user-select: none;
       height: 100vh;
       box-sizing: border-box;
+      /* More subtle hardware acceleration */
+      will-change: auto;
     }
     .container {
       text-align: center;
@@ -150,166 +156,194 @@
     </div>
   </div>
 
+  <!-- Complete overhaul of script handling to fix hotkey changing -->
   <script>
+    // Load Electron's IPC renderer
     const { ipcRenderer } = require('electron');
-    const status = document.getElementById('status');
-    const changeHotkeyBtn = document.getElementById('changeHotkeyBtn');
-    const hotkeyRecorderContainer = document.getElementById('hotkeyRecorderContainer');
-    const hotkeyInput = document.getElementById('hotkeyInput');
-    const saveHotkeyBtn = document.getElementById('saveHotkeyBtn');
-    const cancelHotkeyBtn = document.getElementById('cancelHotkeyBtn');
-    const currentHotkey = document.getElementById('currentHotkey');
-    const pasteDestination = document.getElementById('pasteDestination');
     
+    // Global variables
     let pressedKeys = [];
     let isRecording = false;
-    
-    function updateCurrentHotkeyDisplay(hotkeyData) {
-      let hotkeyHtml = 'Press ';
+
+    // Wait for the window to fully load before attaching event handlers
+    window.onload = function() {
+      console.log("Window loaded, setting up event handlers");
       
-      hotkeyData.forEach((key, index) => {
-        hotkeyHtml += `<span class="key">${key}</span>`;
-        if (index < hotkeyData.length - 1) {
-          hotkeyHtml += ' + ';
-        }
-      });
+      // Get DOM elements directly
+      const status = document.getElementById('status');
+      const changeHotkeyBtn = document.getElementById('changeHotkeyBtn');
+      const hotkeyRecorderContainer = document.getElementById('hotkeyRecorderContainer');
+      const hotkeyInput = document.getElementById('hotkeyInput');
+      const saveHotkeyBtn = document.getElementById('saveHotkeyBtn');
+      const cancelHotkeyBtn = document.getElementById('cancelHotkeyBtn');
+      const currentHotkey = document.getElementById('currentHotkey');
+      const pasteDestination = document.getElementById('pasteDestination');
       
-      hotkeyHtml += ' to capture';
-      currentHotkey.innerHTML = hotkeyHtml;
-    }
-    
-    ipcRenderer.send('get-hotkey');
-    ipcRenderer.on('current-hotkey', (event, hotkeyData) => {
-      updateCurrentHotkeyDisplay(hotkeyData);
-    });
-    
-    // Get the current paste destination preference
-    ipcRenderer.send('get-destination');
-    ipcRenderer.on('current-destination', (event, destination) => {
-      pasteDestination.value = destination;
-    });
-    
-    // Send destination changes to main process
-    pasteDestination.addEventListener('change', () => {
-      ipcRenderer.send('save-destination', pasteDestination.value);
-    });
-    
-    changeHotkeyBtn.addEventListener('click', () => {
-      changeHotkeyBtn.classList.add('hidden');
-      hotkeyRecorderContainer.classList.remove('hidden');
-      hotkeyInput.value = '';
-      saveHotkeyBtn.disabled = true;
-      pressedKeys = [];
-      isRecording = true;
-      status.textContent = 'Press the keys you want to use as hotkey';
-      status.className = 'status';
-    });
-    
-    cancelHotkeyBtn.addEventListener('click', () => {
-      hotkeyRecorderContainer.classList.add('hidden');
-      changeHotkeyBtn.classList.remove('hidden');
-      isRecording = false;
-      status.textContent = 'Ready to capture';
-      status.className = 'status';
-    });
-    
-    saveHotkeyBtn.addEventListener('click', () => {
-      if (pressedKeys.length > 0) {
-        ipcRenderer.send('save-hotkey', pressedKeys);
+      // Function to update the displayed hotkey
+      function updateCurrentHotkeyDisplay(hotkeyData) {
+        let hotkeyHtml = 'Press ';
+        
+        hotkeyData.forEach((key, index) => {
+          hotkeyHtml += `<span class="key">${key}</span>`;
+          if (index < hotkeyData.length - 1) {
+            hotkeyHtml += ' + ';
+          }
+        });
+        
+        hotkeyHtml += ' to capture';
+        currentHotkey.innerHTML = hotkeyHtml;
+      }
+      
+      // Request current hotkey from main process
+      ipcRenderer.send('get-hotkey');
+      
+      // Add "Change Hotkey" button event listener with direct assignment
+      changeHotkeyBtn.onclick = function() {
+        console.log("Change hotkey button clicked");
+        changeHotkeyBtn.classList.add('hidden');
+        hotkeyRecorderContainer.classList.remove('hidden');
+        hotkeyInput.value = '';
+        saveHotkeyBtn.disabled = true;
+        pressedKeys = [];
+        isRecording = true;
+        status.textContent = 'Press the keys you want to use as hotkey';
+        status.className = 'status';
+      };
+      
+      // Add event listener for Cancel button
+      cancelHotkeyBtn.onclick = function() {
+        console.log("Cancel button clicked");
         hotkeyRecorderContainer.classList.add('hidden');
         changeHotkeyBtn.classList.remove('hidden');
         isRecording = false;
-        status.textContent = 'Hotkey saved successfully!';
+        status.textContent = 'Ready to capture';
+        status.className = 'status';
+      };
+      
+      // Add event listener for Save button
+      saveHotkeyBtn.onclick = function() {
+        console.log("Save button clicked, sending keys:", pressedKeys);
+        if (pressedKeys.length > 0) {
+          ipcRenderer.send('save-hotkey', pressedKeys);
+          hotkeyRecorderContainer.classList.add('hidden');
+          changeHotkeyBtn.classList.remove('hidden');
+          isRecording = false;
+          status.textContent = 'Hotkey saved successfully!';
+          status.className = 'status success';
+          setTimeout(() => {
+            status.textContent = 'Ready to capture';
+            status.className = 'status';
+          }, 3000);
+        }
+      };
+      
+      // Add event listener for key down for hotkey recording
+      document.addEventListener('keydown', function(e) {
+        if (!isRecording) return;
+        
+        e.preventDefault();
+        console.log("Key pressed while recording:", e.key);
+        
+        const key = e.key.toUpperCase();
+        if (!pressedKeys.includes(key) && key !== 'CONTROL' && key !== 'SHIFT' && key !== 'ALT') {
+          pressedKeys = [];
+          
+          if (e.ctrlKey) pressedKeys.push('Ctrl');
+          if (e.shiftKey) pressedKeys.push('Shift');
+          if (e.altKey) pressedKeys.push('Alt');
+          
+          if (key !== 'CONTROL' && key !== 'SHIFT' && key !== 'ALT') {
+            pressedKeys.push(key);
+          }
+          
+          hotkeyInput.value = pressedKeys.join(' + ');
+          saveHotkeyBtn.disabled = pressedKeys.length < 2;
+        }
+      });
+      
+      // Add event listener for destination change
+      pasteDestination.onchange = function() {
+        console.log("Destination changed to:", pasteDestination.value);
+        ipcRenderer.send('save-destination', pasteDestination.value);
+      };
+      
+      // Set up IPC handlers for messages from main process
+      ipcRenderer.on('current-hotkey', (event, hotkeyData) => {
+        console.log("Received current hotkey:", hotkeyData);
+        updateCurrentHotkeyDisplay(hotkeyData);
+      });
+      
+      ipcRenderer.on('current-destination', (event, destination) => {
+        console.log("Received current destination:", destination);
+        pasteDestination.value = destination;
+      });
+      
+      ipcRenderer.on('screenshot-taken', () => {
+        const destination = pasteDestination.value === 'cursor' ? 'Cursor' : 'ChatGPT';
+        status.textContent = `Screenshot captured! Opening ${destination}...`;
+        status.className = 'status success';
+      });
+
+      ipcRenderer.on('paste-success', (event, destination) => {
+        status.textContent = `Screenshot pasted into ${destination} successfully!`;
         status.className = 'status success';
         setTimeout(() => {
           status.textContent = 'Ready to capture';
           status.className = 'status';
-        }, 3000);
-      }
-    });
-    
-    document.addEventListener('keydown', (e) => {
-      if (!isRecording) return;
+        }, 5000);
+      });
+
+      ipcRenderer.on('paste-timeout', (event, destination) => {
+        status.textContent = `Could not detect ${destination} window. Image is in clipboard, please paste manually.`;
+        status.className = 'status warning';
+        setTimeout(() => {
+          status.textContent = 'Ready to capture';
+          status.className = 'status';
+        }, 8000);
+      });
       
-      e.preventDefault();
+      ipcRenderer.on('cursor-not-running', () => {
+        status.textContent = 'Cursor is not running. Please start Cursor and try again.';
+        status.className = 'status error';
+        setTimeout(() => {
+          status.textContent = 'Ready to capture';
+          status.className = 'status';
+        }, 8000);
+      });
+
+      ipcRenderer.on('cursor-focused', () => {
+        status.textContent = 'Cursor window focused. Please click in the chat box when ready.';
+        status.className = 'status success';
+      });
+
+      ipcRenderer.on('cursor-already-focused', () => {
+        status.textContent = 'Cursor already focused. Please click in the chat box when ready.';
+        status.className = 'status success';
+      });
+
+      ipcRenderer.on('paste-error', (event, message) => {
+        status.textContent = `Paste error: ${message}. Try pasting manually with Ctrl+V.`;
+        status.className = 'status error';
+        setTimeout(() => {
+          status.textContent = 'Ready to capture';
+          status.className = 'status';
+        }, 8000);
+      });
+
+      ipcRenderer.on('screenshot-error', (event, error) => {
+        status.textContent = `Error: ${error}`;
+        status.className = 'status error';
+        setTimeout(() => {
+          status.textContent = 'Ready to capture';
+          status.className = 'status';
+        }, 5000);
+      });
       
-      const key = e.key.toUpperCase();
-      if (!pressedKeys.includes(key) && key !== 'CONTROL' && key !== 'SHIFT' && key !== 'ALT') {
-        pressedKeys = [];
-        
-        if (e.ctrlKey) pressedKeys.push('Ctrl');
-        if (e.shiftKey) pressedKeys.push('Shift');
-        if (e.altKey) pressedKeys.push('Alt');
-        
-        if (key !== 'CONTROL' && key !== 'SHIFT' && key !== 'ALT') {
-          pressedKeys.push(key);
-        }
-        
-        hotkeyInput.value = pressedKeys.join(' + ');
-        saveHotkeyBtn.disabled = pressedKeys.length < 2;
-      }
-    });
-    
-    ipcRenderer.on('screenshot-taken', () => {
-      const destination = pasteDestination.value === 'cursor' ? 'Cursor' : 'ChatGPT';
-      status.textContent = `Screenshot captured! Opening ${destination}...`;
-      status.className = 'status success';
-    });
-
-    ipcRenderer.on('paste-success', (event, destination) => {
-      status.textContent = `Screenshot pasted into ${destination} successfully!`;
-      status.className = 'status success';
-      setTimeout(() => {
-        status.textContent = 'Ready to capture';
-        status.className = 'status';
-      }, 5000);
-    });
-
-    ipcRenderer.on('paste-timeout', (event, destination) => {
-      status.textContent = `Could not detect ${destination} window. Image is in clipboard, please paste manually.`;
-      status.className = 'status warning';
-      setTimeout(() => {
-        status.textContent = 'Ready to capture';
-        status.className = 'status';
-      }, 8000);
-    });
-    
-    ipcRenderer.on('cursor-not-running', () => {
-      status.textContent = 'Cursor is not running. Please start Cursor and try again.';
-      status.className = 'status error';
-      setTimeout(() => {
-        status.textContent = 'Ready to capture';
-        status.className = 'status';
-      }, 8000);
-    });
-
-    ipcRenderer.on('cursor-focused', () => {
-      status.textContent = 'Cursor window focused. Please click in the chat box when ready.';
-      status.className = 'status success';
-    });
-
-    ipcRenderer.on('cursor-already-focused', () => {
-      status.textContent = 'Cursor already focused. Please click in the chat box when ready.';
-      status.className = 'status success';
-    });
-
-    ipcRenderer.on('paste-error', (event, message) => {
-      status.textContent = `Paste error: ${message}. Try pasting manually with Ctrl+V.`;
-      status.className = 'status error';
-      setTimeout(() => {
-        status.textContent = 'Ready to capture';
-        status.className = 'status';
-      }, 8000);
-    });
-
-    ipcRenderer.on('screenshot-error', (event, error) => {
-      status.textContent = `Error: ${error}`;
-      status.className = 'status error';
-      setTimeout(() => {
-        status.textContent = 'Ready to capture';
-        status.className = 'status';
-      }, 5000);
-    });
+      // Request current destination setting from main process
+      ipcRenderer.send('get-destination');
+      
+      console.log("All event handlers set up");
+    };
   </script>
 </body>
 </html>

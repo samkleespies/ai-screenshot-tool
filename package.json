@@ -1,6 +1,6 @@
 {
   "name": "ai-screenshot-tool",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Windows screenshot tool with ChatGPT and Cursor integration",
   "main": "main.js",
   "author": {
@@ -8,7 +8,7 @@
     "email": "your.email@example.com"
   },
   "scripts": {
-    "start": "electron .",
+    "start": "electron --js-flags=\"--max-old-space-size=128 --optimize-for-size\" .",
     "build": "electron-builder",
     "build:portable": "electron-builder --win portable",
     "build:installer": "electron-builder --win nsis",
@@ -71,6 +71,8 @@
       "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
-    ]
+    ],
+    "asar": true,
+    "compression": "maximum"
   }
 }

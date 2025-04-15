@@ -5,6 +5,20 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 
+// Disable hardware acceleration for faster startup
+app.disableHardwareAcceleration();
+
+// Enable V8 code caching for faster startup
+app.commandLine.appendSwitch('enable-features', 'V8CacheOptions');
+
+// Set app user model ID early for better Windows integration
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.ai-screenshot.app');
+}
+
+// Enable process reuse (reduces multiple instance overhead)
+app.allowRendererProcessReuse = true;
+
 let mainWindow = null;
 let tray = null;
 let keyboardListener = null;
@@ -18,11 +32,19 @@ let hotkeyConfig = {
 let pasteDestination = 'chatgpt'; // Default destination
 
 const prefsPath = path.join(app.getPath('userData'), 'preferences.json');
+let prefsCache = null;
 
-function loadPreferences() {
+async function loadPreferences() {
   try {
+    // Check if we have cached preferences first
+    if (prefsCache) {
+      console.log('Using cached preferences');
+      return prefsCache;
+    }
+
+    // Use fs.promises for non-blocking I/O
     if (fs.existsSync(prefsPath)) {
-      const data = fs.readFileSync(prefsPath, 'utf8');
+      const data = await fs.promises.readFile(prefsPath, 'utf8');
       const prefs = JSON.parse(data);
       
       if (prefs.hotkey) {
@@ -34,23 +56,35 @@ function loadPreferences() {
       }
       
       console.log('Loaded preferences:', prefs);
+      
+      // Update cache
+      prefsCache = prefs;
+      return prefs;
     }
+    return null;
   } catch (error) {
     console.error('Error loading preferences:', error);
+    return null;
   }
 }
 
-function savePreferences() {
+async function savePreferences() {
   try {
     const prefs = {
       hotkey: hotkeyConfig,
       destination: pasteDestination
     };
     
-    fs.writeFileSync(prefsPath, JSON.stringify(prefs, null, 2), 'utf8');
+    // Update cache first (faster response)
+    prefsCache = prefs;
+    
+    // Then write to disk asynchronously
+    await fs.promises.writeFile(prefsPath, JSON.stringify(prefs, null, 2), 'utf8');
     console.log('Saved preferences:', prefs);
+    return true;
   } catch (error) {
     console.error('Error saving preferences:', error);
+    return false;
   }
 }
 
@@ -60,14 +94,24 @@ function createWindow() {
     height: 450,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      backgroundThrottling: false
     },
     resizable: false,
     autoHideMenuBar: true,
-    icon: path.join(__dirname, 'icon.ico')
+    icon: path.join(__dirname, 'icon.ico'),
+    // Modern Windows look
+    backgroundColor: '#f5f5f5',
+    frame: true,
+    show: false
   });
 
   mainWindow.loadFile('index.html');
+
+  // Show window when ready to avoid flashing
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
 
   mainWindow.on('minimize', (event) => {
     event.preventDefault();
@@ -118,8 +162,22 @@ function setupTray() {
 }
 
 function createSelectionWindow() {
+  // Close existing selection window if it exists
+  if (selectionWindow) {
+    try {
+      selectionWindow.close();
+    } catch (error) {
+      console.error('Error closing existing selection window:', error);
+    }
+    selectionWindow = null;
+  }
+
+  console.log('Creating selection window');
+  
+  // Get screen dimensions
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   
+  // Create window with simpler options for reliability
   selectionWindow = new BrowserWindow({
     width,
     height,
@@ -129,58 +187,72 @@ function createSelectionWindow() {
     skipTaskbar: true,
     resizable: false,
     fullscreenable: true,
-    movable: false,
-    maximizable: false,
-    minimizable: false,
-    titleBarStyle: 'hidden',
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
-    },
-    icon: path.join(__dirname, 'icon.ico')
+      contextIsolation: false,
+      backgroundThrottling: false
+    }
   });
 
+  // Load the selection HTML file
   selectionWindow.loadFile('selection.html');
-  selectionWindow.setFullScreen(true);
   
-  // Ensure the window is not resizable by system or user
-  selectionWindow.setResizable(false);
+  // Set up additional window properties after load
+  selectionWindow.once('ready-to-show', () => {
+    console.log('Selection window ready to show');
+    // Ensure it's fullscreen
+    selectionWindow.setFullScreen(true);
+    // Ensure it's always on top
+    selectionWindow.setAlwaysOnTop(true, 'screen-saver');
+    // Show the window
+    selectionWindow.show();
+    console.log('Selection window displayed');
+  });
   
-  // Prevent the window from being moved
-  selectionWindow.setMovable(false);
-  
-  // Ensure window stays on top
-  selectionWindow.setAlwaysOnTop(true, 'screen-saver');
+  // Handle window close event
+  selectionWindow.on('closed', () => {
+    console.log('Selection window closed');
+    selectionWindow = null;
+  });
 }
 
 function setupHotkeys() {
-  keyboardListener = new GlobalKeyboardListener();
+  console.log('Setting up hotkeys with:', hotkeyConfig);
   
-  const isScreenshotHotkey = (e, down) => {
-    if (e.state === 'DOWN' && e.name === hotkeyConfig.nodeKeys[hotkeyConfig.nodeKeys.length - 1]) {
-      const modifierKeys = hotkeyConfig.nodeKeys.slice(0, -1);
-      return modifierKeys.every(key => down.includes(key));
-    }
-    return false;
-  };
+  try {
+    keyboardListener = new GlobalKeyboardListener();
+    
+    const isScreenshotHotkey = (e, down) => {
+      if (e.state === 'DOWN' && e.name === hotkeyConfig.nodeKeys[hotkeyConfig.nodeKeys.length - 1]) {
+        const modifierKeys = hotkeyConfig.nodeKeys.slice(0, -1);
+        return modifierKeys.every(key => down.includes(key));
+      }
+      return false;
+    };
 
-  let downKeys = new Set();
+    let downKeys = new Set();
 
-  keyboardListener.addListener((e) => {
-    if (e.state === 'DOWN') {
-      downKeys.add(e.name);
-    } else if (e.state === 'UP') {
-      downKeys.delete(e.name);
-    }
+    keyboardListener.addListener((e) => {
+      if (e.state === 'DOWN') {
+        downKeys.add(e.name);
+      } else if (e.state === 'UP') {
+        downKeys.delete(e.name);
+      }
 
-    if (isScreenshotHotkey(e, Array.from(downKeys))) {
-      console.log('Screenshot hotkey detected');
-      startScreenshotProcess();
-    }
-  });
+      if (isScreenshotHotkey(e, Array.from(downKeys))) {
+        console.log('Screenshot hotkey detected:', hotkeyConfig.keys.join(' + '));
+        startScreenshotProcess();
+      }
+    });
+    
+    console.log('Hotkey listener set up successfully');
+  } catch (error) {
+    console.error('Error setting up hotkeys:', error);
+  }
 }
 
 function convertToNodeKeys(uiKeys) {
+  console.log('Converting UI keys to node keys:', uiKeys);
   const nodeKeys = [];
   
   for (const key of uiKeys) {
@@ -190,21 +262,44 @@ function convertToNodeKeys(uiKeys) {
       nodeKeys.push('LEFT SHIFT');
     } else if (key === 'Alt') {
       nodeKeys.push('LEFT ALT');
+    } else if (key === 'Meta' || key === 'OS' || key === 'Win') {
+      nodeKeys.push('LEFT META');
     } else {
-      nodeKeys.push(key);
+      // Handle single character keys properly
+      nodeKeys.push(key.length === 1 ? key.toUpperCase() : key);
     }
   }
   
+  console.log('Converted to node keys:', nodeKeys);
   return nodeKeys;
 }
 
 async function startScreenshotProcess() {
   try {
     console.log('Starting screenshot process');
+    
+    // Make sure any existing selection window is closed
+    if (selectionWindow) {
+      try {
+        selectionWindow.close();
+      } catch (error) {
+        console.error('Error closing existing selection window:', error);
+      }
+      selectionWindow = null;
+    }
+    
+    // Create a fresh selection window
     createSelectionWindow();
+    
+    // If we have a main window, inform it we're taking a screenshot
+    if (mainWindow) {
+      mainWindow.webContents.send('taking-screenshot');
+    }
   } catch (error) {
     console.error('Error in screenshot process:', error);
-    mainWindow.webContents.send('screenshot-error', error.message);
+    if (mainWindow) {
+      mainWindow.webContents.send('screenshot-error', error.message);
+    }
   }
 }
 
@@ -212,12 +307,12 @@ async function captureArea(bounds) {
   try {
     console.log('Capturing area with bounds:', bounds);
     
-    // First, capture the entire screen
+    // More efficient desktopCapturer usage
     const sources = await desktopCapturer.getSources({ 
       types: ['screen'],
       thumbnailSize: {
-        width: screen.getPrimaryDisplay().workAreaSize.width,
-        height: screen.getPrimaryDisplay().workAreaSize.height
+        width: bounds.width * 2, // Double for retina/high-DPI screens
+        height: bounds.height * 2
       }
     });
     
@@ -229,19 +324,19 @@ async function captureArea(bounds) {
     }
     
     // Create a native image from the thumbnail
-    const fullScreenImg = primarySource.thumbnail;
+    const screenImg = primarySource.thumbnail;
     
     // Crop the image to the selected bounds
-    const croppedImg = fullScreenImg.crop({
+    const croppedImg = screenImg.crop({
       x: bounds.x,
       y: bounds.y,
       width: bounds.width,
       height: bounds.height
     });
     
-    // Save the cropped image to disk temporarily (for debugging)
-    const tempImagePath = path.join(os.tmpdir(), 'ai-screenshot-app-temp.png');
-    fs.writeFileSync(tempImagePath, croppedImg.toPNG());
+    // Only save the temp file if needed for debugging (comment out in production)
+    // const tempImagePath = path.join(os.tmpdir(), 'ai-screenshot-app-temp.png');
+    // fs.writeFileSync(tempImagePath, croppedImg.toPNG());
     
     // Copy the cropped image to clipboard
     clipboard.writeImage(croppedImg);
@@ -768,58 +863,101 @@ Add-Type -TypeDefinition $source -ReferencedAssemblies System.Windows.Forms
   });
 }
 
-ipcMain.on('capture-area', async (event, bounds) => {
-  if (selectionWindow) {
-    selectionWindow.close();
-    selectionWindow = null;
+async function initApp() {
+  try {
+    // Load preferences first (async)
+    await loadPreferences();
+    
+    // Create main window (most visible part for user)
+    createWindow();
+    
+    // Set up IPC handlers immediately to ensure they're ready
+    setupIpcHandlers();
+    
+    // Defer non-essential operations
+    setTimeout(() => {
+      setupTray();
+      setupHotkeys();
+    }, 100);
+  } catch (error) {
+    console.error('Error during app initialization:', error);
   }
-  await captureArea(bounds);
-});
+}
 
-ipcMain.on('cancel-selection', () => {
-  if (selectionWindow) {
-    selectionWindow.close();
-    selectionWindow = null;
-  }
-});
+// Single listener function for related IPC events
+function setupIpcHandlers() {
+  // Screenshot related events
+  ipcMain.on('capture-area', async (event, bounds) => {
+    if (selectionWindow) {
+      selectionWindow.close();
+      selectionWindow = null;
+    }
+    await captureArea(bounds);
+  });
 
-ipcMain.on('get-hotkey', (event) => {
-  event.reply('current-hotkey', hotkeyConfig.keys);
-});
+  ipcMain.on('cancel-selection', () => {
+    if (selectionWindow) {
+      selectionWindow.close();
+      selectionWindow = null;
+    }
+  });
 
-ipcMain.on('save-hotkey', (event, newHotkey) => {
-  console.log('Saving new hotkey:', newHotkey);
-  
-  hotkeyConfig.keys = newHotkey;
-  hotkeyConfig.nodeKeys = convertToNodeKeys(newHotkey);
-  
-  savePreferences();
-  
-  event.reply('current-hotkey', hotkeyConfig.keys);
-});
+  // Preference related events
+  ipcMain.on('get-hotkey', (event) => {
+    console.log('Get hotkey request received, sending:', hotkeyConfig.keys);
+    // Send immediately to ensure UI has latest values
+    event.reply('current-hotkey', hotkeyConfig.keys);
+  });
 
-ipcMain.on('get-destination', (event) => {
-  event.reply('current-destination', pasteDestination);
-});
+  ipcMain.on('save-hotkey', async (event, newHotkey) => {
+    console.log('Saving new hotkey:', newHotkey);
+    
+    // Validate the hotkey format
+    if (!Array.isArray(newHotkey) || newHotkey.length < 2) {
+      console.error('Invalid hotkey format:', newHotkey);
+      return;
+    }
+    
+    // Update hotkey config
+    hotkeyConfig.keys = newHotkey;
+    hotkeyConfig.nodeKeys = convertToNodeKeys(newHotkey);
+    
+    // Save preferences
+    await savePreferences();
+    
+    // Recreate keyboard listener with new hotkey
+    if (keyboardListener) {
+      try {
+        console.log('Resetting keyboard listener with new hotkey');
+        keyboardListener.kill();
+        keyboardListener = null;
+      } catch (error) {
+        console.error('Error killing keyboard listener:', error);
+      }
+    }
+    
+    // Create new keyboard listener
+    setupHotkeys();
+    
+    // Confirm back to renderer
+    console.log('Hotkey saved, sending confirmation with:', hotkeyConfig.keys);
+    event.reply('current-hotkey', hotkeyConfig.keys);
+  });
 
-ipcMain.on('save-destination', (event, newDestination) => {
-  console.log('Saving new paste destination:', newDestination);
-  
-  pasteDestination = newDestination;
-  
-  savePreferences();
-});
+  ipcMain.on('get-destination', (event) => {
+    event.reply('current-destination', pasteDestination);
+  });
 
-app.whenReady().then(() => {
-  if (process.platform === 'win32') {
-    app.setAppUserModelId('com.ai-screenshot.app');
-  }
-  
-  loadPreferences();
-  
-  createWindow();
-  setupTray();
-  setupHotkeys();
+  ipcMain.on('save-destination', async (event, newDestination) => {
+    console.log('Saving new paste destination:', newDestination);
+    pasteDestination = newDestination;
+    await savePreferences();
+  });
+}
+
+// App lifecycle
+app.whenReady().then(async () => {
+  await initApp();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -832,7 +970,6 @@ app.on('before-quit', () => {
   if (keyboardListener) {
     keyboardListener.kill();
   }
-  
   globalShortcut.unregisterAll();
 });
 

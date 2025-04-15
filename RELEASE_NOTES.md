@@ -1,5 +1,27 @@
 # AI Screenshot Tool Release Notes
 
+## Version 1.2.0
+
+### Improvements and Fixes
+
+- **Enhanced Selection Window**: Fixed issues with the click and drag functionality in the screenshot selection
+- **Improved Performance**: Optimized application startup and overall responsiveness
+- **More Reliable Hotkeys**: Fixed issues with hotkey configuration changes
+- **Better Windows Integration**: Improved how the app integrates with Windows for faster operation
+- **Additional Debug Logging**: Added detailed logging to help diagnose any future issues
+- **Modern UI Enhancements**: Maintained the clean, modern look while improving performance
+
+### Installation
+
+#### Installer Version
+1. Download `AI-Screenshot-Tool-Setup-1.2.0.exe`
+2. Run the installer and follow the prompts
+3. Launch from the Start Menu or Desktop shortcut
+
+#### Portable Version
+1. Download `AI-Screenshot-Tool-Portable-1.2.0.exe`
+2. Run the executable - no installation required
+
 ## Version 1.1.0
 
 ### New Features

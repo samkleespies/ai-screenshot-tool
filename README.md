@@ -2,6 +2,18 @@
 
 A Windows desktop app built with Electron and Node.js that lets you screenshot an area of your screen, then the tool will automatically open a new ChatGPT chat or Cursor chat and paste the screenshot for you.
 
+## What's New in v1.2.0 🚀
+
+Just shipped a bunch of fixes that make the app way more reliable:
+
+- Fixed the annoying selection window bug that was preventing click and drag from working
+- Made the app start up faster and feel snappier overall
+- Fixed issues with hotkey configuration (they actually save properly now!)
+- Added better logging to help track down any weird behaviors
+- Maintained the clean look while making everything work better under the hood
+
+Check the [Release Notes](RELEASE_NOTES.md) for the full details!
+
 ## Features
 
 - **Screenshot and Paste**: Capture any area of your screen and have it automatically pasted
@@ -20,12 +32,12 @@ A Windows desktop app built with Electron and Node.js that lets you screenshot a
 ## Installation
 
 ### Option 1: Installer Version
-1. Download the latest installer (`AI-Screenshot-Tool-Setup-x.x.x.exe`) from the [Releases](https://github.com/yourusername/ai-screenshot-tool/releases) page
+1. Download the latest installer (`AI-Screenshot-Tool-Setup-1.2.0.exe`) from the [Releases](https://github.com/yourusername/ai-screenshot-tool/releases) page
 2. Run the installer and follow the prompts
 3. Launch from the Start Menu or Desktop shortcut
 
 ### Option 2: Portable Version
-1. Download the latest portable executable (`AI-Screenshot-Tool-Portable-x.x.x.exe`) from the [Releases](https://github.com/yourusername/ai-screenshot-tool/releases) page
+1. Download the latest portable executable (`AI-Screenshot-Tool-Portable-1.2.0.exe`) from the [Releases](https://github.com/yourusername/ai-screenshot-tool/releases) page
 2. Run the executable - no installation required
 
 ### Option 3: Build from Source

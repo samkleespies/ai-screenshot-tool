@@ -2,6 +2,9 @@
 <html>
 <head>
   <title>Select Area</title>
+  <!-- Ensure correct Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+  <meta charset="UTF-8">
   <style>
     html, body {
       margin: 0;
@@ -12,6 +15,8 @@
       user-select: none;
       -webkit-user-select: none;
       -webkit-app-region: no-drag;
+      /* Remove hardware acceleration for now */
+      will-change: initial;
     }
     body {
       background: rgba(0, 0, 0, 0.3);
@@ -31,6 +36,8 @@
       display: none;
       pointer-events: none;
       z-index: 1000;
+      /* Remove will-change for testing */
+      will-change: initial;
     }
     #instructions {
       position: fixed;
@@ -97,154 +104,147 @@
   <div id="left-guard" class="edge-guard"></div>
   <div id="right-guard" class="edge-guard"></div>
 
+  <!-- Simpler script approach for reliability -->
   <script>
+    // Load IPC renderer
     const { ipcRenderer } = require('electron');
-    const selection = document.getElementById('selection');
-    const instructions = document.getElementById('instructions');
-    const overlay = document.getElementById('overlay');
-    const edgeGuards = document.querySelectorAll('.edge-guard');
-    let isSelecting = false;
-    let startX, startY;
-
-    // Prevent default behavior for all events that might trigger system UI
-    document.addEventListener('contextmenu', (e) => e.preventDefault());
     
-    // Prevent any default drag behavior
-    document.addEventListener('dragstart', (e) => e.preventDefault());
-    
-    // Explicitly handle all mouse events on edge guards
-    edgeGuards.forEach(guard => {
-      guard.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      });
+    // Wait for window to fully load
+    window.onload = function() {
+      console.log('Selection window loaded');
       
-      guard.addEventListener('mousemove', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      });
+      // Get elements
+      const selection = document.getElementById('selection');
+      const instructions = document.getElementById('instructions');
+      const overlay = document.getElementById('overlay');
+      const edgeGuards = document.querySelectorAll('.edge-guard');
       
-      guard.addEventListener('mouseup', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      });
-    });
-    
-    // Prevent any native resize behavior
-    window.addEventListener('resize', (e) => {
-      e.preventDefault();
-      document.body.style.width = '100vw';
-      document.body.style.height = '100vh';
-    });
-    
-    // Override resize related CSS properties periodically to ensure no resize handles appear
-    function enforceFullscreen() {
-      document.body.style.width = '100vw';
-      document.body.style.height = '100vh';
-      document.documentElement.style.width = '100vw';
-      document.documentElement.style.height = '100vh';
-    }
-    
-    // Run enforceFullscreen immediately and periodically
-    enforceFullscreen();
-    setInterval(enforceFullscreen, 100);
-    
-    // Prevent mousedown events near screen edges
-    const EDGE_THRESHOLD = 10; // pixels - increased threshold
-    
-    function isNearEdge(x, y) {
-      return x < EDGE_THRESHOLD || 
-             y < EDGE_THRESHOLD || 
-             window.innerWidth - x < EDGE_THRESHOLD || 
-             window.innerHeight - y < EDGE_THRESHOLD;
-    }
-
-    document.addEventListener('mousedown', (e) => {
-      // First prevent default
-      e.preventDefault();
-      e.stopPropagation();
+      // Variables for selection
+      let isSelecting = false;
+      let startX = 0;
+      let startY = 0;
       
-      // Skip if near edge to prevent resize handles
-      if (isNearEdge(e.clientX, e.clientY)) {
-        return false;
+      // Edge detection
+      const EDGE_THRESHOLD = 10;
+      function isNearEdge(x, y) {
+        return x < EDGE_THRESHOLD || 
+              y < EDGE_THRESHOLD || 
+              window.innerWidth - x < EDGE_THRESHOLD || 
+              window.innerHeight - y < EDGE_THRESHOLD;
       }
       
-      isSelecting = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      selection.style.display = 'block';
-      selection.style.left = startX + 'px';
-      selection.style.top = startY + 'px';
-      selection.style.width = '0';
-      selection.style.height = '0';
-      instructions.style.display = 'none';
-    });
-
-    document.addEventListener('mousemove', (e) => {
-      // Always prevent default to stop any system UI
-      e.preventDefault();
+      // Handle mouse down to start selection
+      document.onmousedown = function(e) {
+        console.log('Mouse down detected at', e.clientX, e.clientY);
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (isNearEdge(e.clientX, e.clientY)) {
+          console.log('Near edge, ignoring');
+          return false;
+        }
+        
+        isSelecting = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        
+        // Reset and show selection
+        selection.style.display = 'block';
+        selection.style.left = startX + 'px';
+        selection.style.top = startY + 'px';
+        selection.style.width = '0px';
+        selection.style.height = '0px';
+        
+        // Hide instructions
+        instructions.style.display = 'none';
+        
+        return false;
+      };
       
-      if (!isSelecting) return;
-
-      const currentX = e.clientX;
-      const currentY = e.clientY;
-
-      const width = Math.abs(currentX - startX);
-      const height = Math.abs(currentY - startY);
-      const left = Math.min(currentX, startX);
-      const top = Math.min(currentY, startY);
-
-      selection.style.left = left + 'px';
-      selection.style.top = top + 'px';
-      selection.style.width = width + 'px';
-      selection.style.height = height + 'px';
-    });
-
-    document.addEventListener('mouseup', (e) => {
-      // Prevent default
-      e.preventDefault();
+      // Handle mouse move to update selection
+      document.onmousemove = function(e) {
+        e.preventDefault();
+        
+        if (!isSelecting) return false;
+        
+        console.log('Mouse move while selecting', e.clientX, e.clientY);
+        
+        const width = Math.abs(e.clientX - startX);
+        const height = Math.abs(e.clientY - startY);
+        const left = Math.min(e.clientX, startX);
+        const top = Math.min(e.clientY, startY);
+        
+        selection.style.left = left + 'px';
+        selection.style.top = top + 'px';
+        selection.style.width = width + 'px';
+        selection.style.height = height + 'px';
+        
+        return false;
+      };
       
-      if (!isSelecting) return;
-      isSelecting = false;
-
-      const width = Math.abs(e.clientX - startX);
-      const height = Math.abs(e.clientY - startY);
-
-      if (width > 10 && height > 10) {
-        const bounds = {
-          x: Math.min(e.clientX, startX),
-          y: Math.min(e.clientY, startY),
-          width,
-          height
+      // Handle mouse up to complete selection
+      document.onmouseup = function(e) {
+        e.preventDefault();
+        
+        if (!isSelecting) return false;
+        
+        console.log('Mouse up, completing selection');
+        isSelecting = false;
+        
+        const width = Math.abs(e.clientX - startX);
+        const height = Math.abs(e.clientY - startY);
+        
+        // Only capture if selection has minimum size
+        if (width > 10 && height > 10) {
+          const bounds = {
+            x: Math.min(e.clientX, startX),
+            y: Math.min(e.clientY, startY),
+            width,
+            height
+          };
+          console.log('Sending capture-area with bounds:', bounds);
+          ipcRenderer.send('capture-area', bounds);
+        } else {
+          console.log('Selection too small, canceling');
+          ipcRenderer.send('cancel-selection');
+        }
+        
+        return false;
+      };
+      
+      // Handle escape key
+      document.onkeydown = function(e) {
+        if (e.key === 'Escape') {
+          console.log('Escape pressed, canceling selection');
+          ipcRenderer.send('cancel-selection');
+        }
+      };
+      
+      // Handle right click to cancel
+      document.oncontextmenu = function(e) {
+        e.preventDefault();
+        console.log('Context menu prevented');
+        return false;
+      };
+      
+      // Prevent default behaviors
+      document.ondragstart = function(e) {
+        e.preventDefault();
+        return false;
+      };
+      
+      // Handle guard areas
+      edgeGuards.forEach(guard => {
+        guard.onmousedown = function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('Guard area clicked, preventing');
+          return false;
         };
-        ipcRenderer.send('capture-area', bounds);
-      } else {
-        ipcRenderer.send('cancel-selection');
-      }
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        ipcRenderer.send('cancel-selection');
-      }
-    });
-    
-    // Handle window focus to ensure we're in fullscreen
-    window.addEventListener('focus', () => {
-      enforceFullscreen();
-    });
-    
-    // Additional event listeners to stop any resize attempt
-    window.addEventListener('pointerdown', (e) => {
-      if (isNearEdge(e.clientX, e.clientY)) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    }, true);
+      });
+      
+      console.log('All selection window event handlers initialized');
+    };
   </script>
 </body>
 </html>
