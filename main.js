@@ -307,12 +307,27 @@ async function captureArea(bounds) {
   try {
     console.log('Capturing area with bounds:', bounds);
     
-    // More efficient desktopCapturer usage
+    // Get the primary display to account for scaling factor
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const scaleFactor = primaryDisplay.scaleFactor;
+    console.log('Display scale factor:', scaleFactor);
+    
+    // Calculate scaled bounds for accurate cropping 
+    const scaledBounds = {
+      x: Math.round(bounds.x * scaleFactor),
+      y: Math.round(bounds.y * scaleFactor),
+      width: Math.round(bounds.width * scaleFactor),
+      height: Math.round(bounds.height * scaleFactor)
+    };
+    
+    console.log('Using scaled bounds:', scaledBounds);
+    
+    // More efficient desktopCapturer usage, using the actual screen resolution
     const sources = await desktopCapturer.getSources({ 
       types: ['screen'],
       thumbnailSize: {
-        width: bounds.width * 2, // Double for retina/high-DPI screens
-        height: bounds.height * 2
+        width: primaryDisplay.size.width * scaleFactor,
+        height: primaryDisplay.size.height * scaleFactor
       }
     });
     
@@ -326,12 +341,12 @@ async function captureArea(bounds) {
     // Create a native image from the thumbnail
     const screenImg = primarySource.thumbnail;
     
-    // Crop the image to the selected bounds
+    // Crop the image to the selected bounds, accounting for scale factor
     const croppedImg = screenImg.crop({
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width,
-      height: bounds.height
+      x: scaledBounds.x,
+      y: scaledBounds.y,
+      width: scaledBounds.width,
+      height: scaledBounds.height
     });
     
     // Only save the temp file if needed for debugging (comment out in production)

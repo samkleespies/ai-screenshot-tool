@@ -51,6 +51,20 @@
       pointer-events: none;
       z-index: 1001;
     }
+    #debug-info {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      color: white;
+      font-family: monospace;
+      font-size: 12px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 5px;
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 1002;
+      display: none;
+    }
     #overlay {
       position: fixed;
       top: 0;
@@ -97,6 +111,7 @@
   <div id="overlay"></div>
   <div id="selection"></div>
   <div id="instructions">Click and drag to select an area</div>
+  <div id="debug-info"></div>
   
   <!-- Edge guards to intercept mouse events -->
   <div id="top-guard" class="edge-guard"></div>
@@ -107,7 +122,7 @@
   <!-- Simpler script approach for reliability -->
   <script>
     // Load IPC renderer
-    const { ipcRenderer } = require('electron');
+    const { ipcRenderer, screen } = require('electron');
     
     // Wait for window to fully load
     window.onload = function() {
@@ -118,11 +133,27 @@
       const instructions = document.getElementById('instructions');
       const overlay = document.getElementById('overlay');
       const edgeGuards = document.querySelectorAll('.edge-guard');
+      const debugInfo = document.getElementById('debug-info');
       
       // Variables for selection
       let isSelecting = false;
       let startX = 0;
       let startY = 0;
+      
+      // Enable debug info with Shift+D
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'D' && e.shiftKey) {
+          debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+        }
+      });
+      
+      // Update debug info
+      function updateDebugInfo(x, y, width, height) {
+        debugInfo.innerHTML = `
+          X: ${x}, Y: ${y}<br>
+          Width: ${width}, Height: ${height}
+        `;
+      }
       
       // Edge detection
       const EDGE_THRESHOLD = 10;
@@ -158,6 +189,9 @@
         // Hide instructions
         instructions.style.display = 'none';
         
+        // Update debug info
+        updateDebugInfo(startX, startY, 0, 0);
+        
         return false;
       };
       
@@ -179,6 +213,9 @@
         selection.style.width = width + 'px';
         selection.style.height = height + 'px';
         
+        // Update debug info
+        updateDebugInfo(left, top, width, height);
+        
         return false;
       };
       
@@ -193,14 +230,16 @@
         
         const width = Math.abs(e.clientX - startX);
         const height = Math.abs(e.clientY - startY);
+        const left = Math.min(e.clientX, startX);
+        const top = Math.min(e.clientY, startY);
         
         // Only capture if selection has minimum size
         if (width > 10 && height > 10) {
           const bounds = {
-            x: Math.min(e.clientX, startX),
-            y: Math.min(e.clientY, startY),
-            width,
-            height
+            x: Math.round(left),
+            y: Math.round(top),
+            width: Math.round(width),
+            height: Math.round(height)
           };
           console.log('Sending capture-area with bounds:', bounds);
           ipcRenderer.send('capture-area', bounds);
