@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, clipboard, globalShortcut, nativeImage, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, clipboard, globalShortcut, nativeImage, desktopCapturer, dialog } = require('electron');
 const path = require('path');
 const { GlobalKeyboardListener } = require('node-global-key-listener');
 const { exec } = require('child_process');
@@ -19,6 +19,7 @@ if (process.platform === 'win32') {
 // Enable process reuse (reduces multiple instance overhead)
 app.allowRendererProcessReuse = true;
 
+// Initialize app variables
 let mainWindow = null;
 let tray = null;
 let keyboardListener = null;
@@ -30,6 +31,28 @@ let hotkeyConfig = {
 };
 
 let pasteDestination = 'chatgpt'; // Default destination
+
+// Check for single instance lock to prevent multiple instances
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotSingleInstanceLock) {
+  // Another instance is already running
+  dialog.showErrorBox(
+    'AI Screenshot Tool Already Running', 
+    'An instance of AI Screenshot Tool is already running. Please use the existing instance.'
+  );
+  app.quit();
+  return;
+}
+
+// Handle second instance attempt - focus the existing window
+app.on('second-instance', (event, commandLine, workingDirectory) => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    mainWindow.show();
+  }
+});
 
 const prefsPath = path.join(app.getPath('userData'), 'preferences.json');
 let prefsCache = null;
